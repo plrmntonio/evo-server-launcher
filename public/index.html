@@ -935,7 +935,14 @@ function presetSummary(p){
     .filter(k => sess[k]?.isVisible)
     .map(k => sess[k].name)
     .join(', ') || '—';
-  return { mode, track, weather, visibleSessions };
+  // Cars (truncated to first 5, then count)
+  const cars = p.selectedCars || [];
+  const carsDisplay = cars.length === 0 ? '—'
+    : cars.length <= 5 ? cars.join(', ')
+    : cars.slice(0, 5).join(', ') + ` … +${cars.length - 5}`;
+  // Max players
+  const maxPlayers = p.maxPlayers ?? '—';
+  return { mode, track, weather, visibleSessions, carsDisplay, maxPlayers };
 }
 
 function renderPresets(){
@@ -952,9 +959,11 @@ function renderPresets(){
           <div style="font-weight:700;font-size:14px;margin-bottom:6px">${esc(p.name)}</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px">
             <span style="color:var(--text2)">${t('game_mode')}:</span><span>${s.mode}</span>
-            <span style="color:var(--text2)">${t('track')}:</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.track}</span>
+            <span style="color:var(--text2)">${t('track')}:</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.track}</span>
             <span style="color:var(--text2)">${t('weather_type')}:</span><span>${s.weather}</span>
             <span style="color:var(--text2)">${t('nav_sessions')}:</span><span>${s.visibleSessions}</span>
+            <span style="color:var(--text2)">${t('max_players')}:</span><span>${s.maxPlayers}</span>
+            <span style="color:var(--text2)">${t('car_selection')}:</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.carsDisplay}</span>
           </div>
           <div style="font-size:10px;color:var(--text2);margin-top:6px">${new Date(p.savedAt).toLocaleString()}</div>
         </div>
@@ -974,11 +983,14 @@ async function savePreset(){
   if(!name){ toast(t('preset_name_required'), 'error'); return; }
   const existing = presets.find(p=>p.name===name);
   if(existing && !confirm(t('preset_overwrite_confirm').replace('{name}', name))) return;
-  // 2. Deep-clone to avoid reference issues
+  // 2. Deep-clone everything: Event, Sessions, maxPlayers, and selected cars
   const payload = {
     name,
-    event:    JSON.parse(JSON.stringify(settings.Event)),
-    sessions: JSON.parse(JSON.stringify(settings.Sessions))
+    event:         JSON.parse(JSON.stringify(settings.Event)),
+    sessions:      JSON.parse(JSON.stringify(settings.Sessions)),
+    maxPlayers:    settings.maxPlayers,
+    maxPlayersLimit: settings.maxPlayersLimit,
+    selectedCars:  allCars.filter(c => c.is_selected).map(c => c.name)
   };
   const r = await api('/api/presets', 'POST', payload);
   if(r.error){ toast(t('error_prefix') + r.error, 'error'); return; }
@@ -991,19 +1003,28 @@ async function applyPreset(name){
   const p = presets.find(p=>p.name===name);
   if(!p){ toast('Preset not found', 'error'); return; }
 
-  // 1. Replace Event and Sessions in settings with deep copies from preset
-  settings.Event    = JSON.parse(JSON.stringify(p.event));
-  settings.Sessions = JSON.parse(JSON.stringify(p.sessions));
+  // 1. Replace Event and Sessions with deep copies from preset
+  settings.Event         = JSON.parse(JSON.stringify(p.event));
+  settings.Sessions      = JSON.parse(JSON.stringify(p.sessions));
+  settings.maxPlayers    = p.maxPlayers    ?? settings.maxPlayers;
+  settings.maxPlayersLimit = p.maxPlayersLimit ?? settings.maxPlayersLimit;
 
-  // 2. Update all form fields from the new settings
+  // 2. Restore car selection from preset
+  if(p.selectedCars && p.selectedCars.length > 0){
+    const selectedSet = new Set(p.selectedCars);
+    allCars = allCars.map(c => ({ ...c, is_selected: selectedSet.has(c.name) }));
+  }
+
+  // 3. Update all form fields from the new settings
   populateForm();
   renderSessions();
+  renderCars();
 
-  // 3. Reload tracks list and restore the correct track selection
+  // 4. Reload tracks list and restore the correct track selection
   const d = await api(`/api/assets?sid=${sid}`);
   populateTracks(d);
 
-  // 4. Automatically save to disk (mirrors pressing the Save button)
+  // 5. Save everything to disk automatically
   await saveAll();
 
   toast(`${t('preset_applied')}: ${name}`, 'success');

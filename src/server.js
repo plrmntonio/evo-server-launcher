@@ -421,11 +421,17 @@ app.get('/api/presets', (req, res) => res.json(loadPresets()));
 
 // Save a new preset (or overwrite by name)
 app.post('/api/presets', (req, res) => {
-  const { name, event, sessions } = req.body;
+  const { name, event, sessions, maxPlayers, maxPlayersLimit, selectedCars } = req.body;
   if (!name || !event || !sessions) return res.status(400).json({ error: 'name, event and sessions are required' });
   const presets = loadPresets();
   const idx = presets.findIndex(p => p.name === name);
-  const preset = { name, event, sessions, savedAt: new Date().toISOString() };
+  const preset = {
+    name, event, sessions,
+    maxPlayers:      maxPlayers      ?? 8,
+    maxPlayersLimit: maxPlayersLimit ?? 40,
+    selectedCars:    selectedCars    || [],
+    savedAt: new Date().toISOString()
+  };
   if (idx >= 0) presets[idx] = preset;
   else presets.push(preset);
   savePresets(presets);
