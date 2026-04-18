@@ -29,7 +29,7 @@ Funziona sia su **Windows** che su **Linux** (AlmaLinux, Ubuntu, ecc.) tramite W
 
 4. **Doppio click su `start.bat`** — al primo avvio installa le dipendenze automaticamente
 
-5. **Apri il browser** su `http://localhost:<webPort>` e accedi con la password configurata
+5. **Apri il browser** su `http://localhost:<webPort>` (se in locale) oppure `http://indirizzoip:<webPort>` (se in una macchina remota) e accedi con la password configurata
 
 ---
 
@@ -90,7 +90,7 @@ Su Linux il path dell'eseguibile va in formato Unix:
 ./start.sh
 ```
 
-Apri il browser su `http://localhost:<webPort>`.
+Apri il browser su `http://localhost:<webPort>` (se in locale) oppure `http://indirizzoip:<webPort>` (se in una macchina remota).
 
 ### Avvio automatico con systemd (opzionale)
 
