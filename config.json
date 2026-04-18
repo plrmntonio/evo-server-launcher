@@ -1,0 +1,8 @@
+{
+  "webPort": 3000,
+  "adminPassword": "admin",
+  "language": "it",
+  "executablePath": "C:\\path\\to\\AssettoCorsaEVOServer.exe",
+  "serverCount": 2,
+  "serverSuffix": "by YAK"
+}

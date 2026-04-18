@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACEVO Server Launcher</title>
+<script src="/i18n.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--card:#1e2a45;--card2:#253351;
+  --accent:#e94560;--accent2:#c73652;--green:#2ecc71;--yellow:#f39c12;
+  --red:#e74c3c;--text:#e8eaf0;--text2:#9aa3b5;--border:#2a3a5c;
+  --input-bg:#131d33;--radius:8px;--shadow:0 4px 20px rgba(0,0,0,.4)
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh}
+.app{display:flex;flex-direction:column;height:100vh}
+header{background:var(--bg2);border-bottom:2px solid var(--accent);padding:0 14px;display:flex;align-items:center;gap:10px;height:54px;flex-shrink:0}
+header h1{font-size:15px;font-weight:700;white-space:nowrap;line-height:1.2}
+header h1 span{color:var(--accent)}
+header h1 small{display:block;font-size:10px;font-weight:400;color:var(--text2);letter-spacing:.5px}
+.srv-sel select{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:13px;font-weight:600;outline:none;cursor:pointer}
+.status-badge{display:flex;align-items:center;gap:7px;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;background:var(--card);border:1px solid var(--border);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text2)}
+.dot.running{background:var(--green);box-shadow:0 0 8px var(--green)}.dot.stopped{background:var(--red)}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:7px}
+.main-layout{display:flex;flex:1;overflow:hidden}
+nav{width:185px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:10px 0;flex-shrink:0}
+.nb{display:flex;align-items:center;gap:8px;padding:10px 16px;cursor:pointer;border:none;background:none;color:var(--text2);font-size:13px;font-weight:500;text-align:left;transition:all .15s;border-left:3px solid transparent;width:100%}
+.nb:hover{background:var(--card);color:var(--text)}.nb.active{background:var(--card);color:var(--text);border-left-color:var(--accent)}
+.nb .ic{font-size:15px;width:19px;text-align:center}
+nav .sp{flex:1}
+.content{flex:1;overflow-y:auto;padding:18px}
+.tab{display:none}.tab.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.f{display:flex;flex-direction:column;gap:4px}.f.full{grid-column:1/-1}
+label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=number],input[type=password],select{background:var(--input-bg);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-size:13px;width:100%;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--accent)}
+input[readonly]{opacity:.5;cursor:default}
+select option{background:var(--input-bg)}
+input[type=color]{height:36px;padding:2px 4px;cursor:pointer;border-radius:5px}
+.tgg{display:flex;align-items:center;gap:8px;padding-top:3px}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.tsl{position:absolute;inset:0;background:var(--border);border-radius:20px;cursor:pointer;transition:.2s}
+.tsl::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.tsl{background:var(--accent)}
+.toggle input:checked+.tsl::before{transform:translateX(16px)}
+.btn{padding:7px 14px;border-radius:5px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent2)}
+.btn-s{background:var(--card2);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.br{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
+.launch-panel{background:var(--bg3);border:2px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px}
+.launch-panel.running{border-color:var(--green)}
+.lbtn{width:100%;padding:14px;font-size:15px;font-weight:700;border-radius:7px;border:none;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:9px}
+.lbtn.start{background:var(--green);color:#fff}.lbtn.start:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.lbtn.stop{background:var(--red);color:#fff}.lbtn.stop:hover{filter:brightness(1.1)}
+.lbtn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.logbox{background:#0a0e1a;border:1px solid var(--border);border-radius:5px;padding:9px;font-family:'Cascadia Code',Consolas,monospace;font-size:11px;height:250px;overflow-y:auto}
+.ll{margin-bottom:2px}.ll.stdout{color:var(--text)}.ll.stderr{color:var(--yellow)}.ll.error{color:var(--red)}.ll.info{color:var(--text2)}
+.lt{color:var(--text2);margin-right:6px;font-size:10px}
+.cars-tb{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px;align-items:center}
+.cars-tb input{width:190px}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--input-bg);color:var(--text2);transition:all .12s;user-select:none}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}.chip.sep{cursor:default;background:var(--border)}
+.cars-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:360px;overflow-y:auto}
+.cc{background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;cursor:pointer;transition:all .12s}
+.cc:hover{border-color:var(--text2)}.cc.sel{border-color:var(--accent);background:rgba(233,69,96,.08)}
+.cn{font-size:12px;font-weight:600}.cm{font-size:11px;color:var(--text2)}.cpi{font-size:11px;color:var(--yellow)}
+.sc-cnt{font-size:12px;color:var(--text2);margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0}
+/* Sessions */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+/* disabled = content hidden but toggle still works */
+.scard.disabled .scard-body{opacity:.35;pointer-events:none}
+.st{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+/* Settings */
+.pwd-form{display:flex;flex-direction:column;gap:9px;max-width:340px}
+.pwd-err{color:var(--red);font-size:12px;display:none}
+/* Theme swatches */
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.theme-var{display:flex;align-items:center;gap:10px}
+.theme-var label{text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);min-width:120px}
+/* Modal */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:1000}
+.modal-ov.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:10px;width:90vw;max-width:800px;max-height:85vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.mh{padding:13px 17px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.mb{flex:1;overflow-y:auto;padding:13px 17px}
+.mb pre{background:var(--input-bg);border-radius:5px;padding:11px;font-size:11px;overflow-x:auto;white-space:pre-wrap}
+.xbtn{background:none;border:none;color:var(--text2);font-size:19px;cursor:pointer}.xbtn:hover{color:var(--text)}
+.toast-c{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:6px;z-index:2000}
+.toast{padding:8px 13px;border-radius:6px;font-size:13px;font-weight:500;animation:si .25s ease;max-width:290px;background:var(--card2);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow)}
+.toast.success{border-color:var(--green)}.toast.error{border-color:var(--red)}
+@keyframes si{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>ACEVO <span>Server Launcher</span><small>by YAK</small></h1>
+  <div class="srv-sel"><select id="serverSelect" onchange="onSrvSwitch()"></select></div>
+  <div class="status-badge"><div class="dot stopped" id="statusDot"></div><span id="statusText">Offline</span></div>
+  <div class="hdr-r">
+    <select id="langSel" onchange="onLangChange(this.value)" style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:5px;font-size:12px;outline:none;cursor:pointer">
+      <option value="en">🇬🇧 EN</option><option value="it">🇮🇹 IT</option><option value="de">🇩🇪 DE</option><option value="fr">🇫🇷 FR</option>
+    </select>
+    <button class="btn btn-s" onclick="logout()" style="padding:4px 10px;font-size:12px" data-i18n="logout">⎋ Logout</button>
+  </div>
+</header>
+
+<div class="main-layout">
+<nav>
+  <button class="nb active" onclick="switchTab('launch')" data-tab="launch"><span class="ic">🚀</span><span data-i18n="nav_launch">Launch</span></button>
+  <button class="nb" onclick="switchTab('server')" data-tab="server"><span class="ic">⚙️</span><span data-i18n="nav_server">Server</span></button>
+  <button class="nb" onclick="switchTab('event')" data-tab="event"><span class="ic">🏁</span><span data-i18n="nav_event">Event</span></button>
+  <button class="nb" onclick="switchTab('sessions')" data-tab="sessions"><span class="ic">🕐</span><span data-i18n="nav_sessions">Sessions</span></button>
+  <button class="nb" onclick="switchTab('settings')" data-tab="settings"><span class="ic">🔧</span><span data-i18n="nav_settings">Settings</span></button>
+  <div class="sp"></div>
+  <button class="nb" onclick="saveAll()" style="color:var(--green)"><span class="ic">💾</span><span data-i18n="nav_save">Save</span></button>
+</nav>
+
+<div class="content">
+
+<!-- LAUNCH -->
+<div class="tab active" id="tab-launch">
+  <div class="launch-panel" id="launchPanel">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+      <div style="font-size:30px">🏎️</div>
+      <div>
+        <div style="font-size:16px;font-weight:700" id="lname">ACEVO Server</div>
+        <div style="font-size:12px;color:var(--text2)" id="lsummary"></div>
+      </div>
+    </div>
+    <button class="lbtn start" id="launchBtn" onclick="startServer()"></button>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="server_console">Server Console</div>
+    <div class="br" style="margin-bottom:7px">
+      <button class="btn btn-s" onclick="clearLogs()" data-i18n="btn_clear">🗑 Clear</button>
+      <button class="btn btn-s" onclick="loadLogs()" data-i18n="btn_refresh">🔄 Refresh</button>
+      <label class="tgg" style="margin-left:auto">
+        <span style="font-size:11px;color:var(--text2)" data-i18n="auto_scroll">Auto-scroll</span>
+        <label class="toggle"><input type="checkbox" id="autoScroll" checked><span class="tsl"></span></label>
+      </label>
+    </div>
+    <div class="logbox" id="logBox"></div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="quick_actions">Quick Actions</div>
+    <div class="br">
+      <button class="btn btn-s" onclick="openPreview()" data-i18n="preview_json">👁 Preview JSON</button>
+      <button class="btn btn-s" onclick="saveAll()" data-i18n="nav_save">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- SERVER -->
+<div class="tab" id="tab-server">
+  <div class="card">
+    <div class="ct" data-i18n="server_identity">Server Identity</div>
+    <div class="fg">
+      <div class="f full"><label data-i18n="server_name">Server Name</label><input type="text" id="serverName"></div>
+      <div class="f"><label data-i18n="server_type">Server Type</label>
+        <select id="serverType">
+          <option value="MultiplayerServerListSessionType_RANKED" data-i18n="type_ranked">Ranked</option>
+          <option value="MultiplayerServerListSessionType_UNRANKED" data-i18n="type_unranked">Unranked</option>
+        </select>
+      </div>
+      <div class="f"><label data-i18n="cycle_sessions">Cycle</label>
+        <div class="tgg"><label class="toggle"><input type="checkbox" id="isCycleEnabled"><span class="tsl"></span></label><span style="font-size:13px;color:var(--text)" data-i18n="enable_cycle">Enable cycle</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="network_ports">Network Ports</div>
+    <p style="color:var(--text2);font-size:12px;margin-bottom:10px" data-i18n="ports_note">Each server must use different ports.</p>
+    <div class="fg">
+      <div class="f"><label data-i18n="tcp_port">TCP Port</label><input type="number" id="tcpPort" min="1024" max="65535"></div>
+      <div class="f"><label data-i18n="udp_port">UDP Port</label><input type="number" id="udpPort" min="1024" max="65535"></div>
+      <div class="f"><label data-i18n="http_port">HTTP Port</label><input type="number" id="httpPort" min="1024" max="65535"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="passwords">Passwords</div>
+    <div class="fg">
+      <div class="f"><label data-i18n="driver_password">Driver</label><input type="password" id="driverPassword"></div>
+      <div class="f"><label data-i18n="spectator_password">Spectator</label><input type="password" id="spectatorPassword"></div>
+      <div class="f"><label data-i18n="admin_password">Admin</label><input type="password" id="adminPassword"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="paths_urls">Paths</div>
+    <div class="fg">
+      <div class="f full"><label data-i18n="entry_list_path">Entry List Path</label><input type="text" id="entryListPath"></div>
+      <div class="f full"><label data-i18n="results_path">Results Path</label><input type="text" id="resultsPath"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT -->
+<div class="tab" id="tab-event">
+  <div class="card">
+    <div class="ct" data-i18n="session_type_track">Session & Track</div>
+    <div class="fg">
+      <div class="f"><label data-i18n="game_mode">Game Mode</label>
+        <select id="sessionType" onchange="onSessionTypeChange()">
+          <option value="GameModeType_PRACTICE" data-i18n="mode_practice">Practice</option>
+          <option value="GameModeType_RACE_WEEKEND" data-i18n="mode_race">Race Weekend</option>
+        </select>
+      </div>
+      <div class="f"><label data-i18n="track">Track</label><select id="trackSelect"></select></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="players">Players</div>
+    <div class="fg">
+      <div class="f"><label data-i18n="max_players">Max Players</label><input type="number" id="maxPlayers" min="1" max="100"></div>
+      <div class="f"><label data-i18n="max_players_limit">Max Players Limit</label><input type="number" id="maxPlayersLimit" min="1" max="100"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="weather_conditions">Weather</div>
+    <div class="fg">
+      <div class="f"><label data-i18n="weather_type">Weather</label>
+        <select id="weatherType">
+          <option value="GameModeSelectionWeatherType_CLEAR" data-i18n="weather_clear">Clear</option>
+          <option value="GameModeSelectionWeatherType_SCATTERED_CLOUDS" data-i18n="weather_scattered">Scattered</option>
+          <option value="GameModeSelectionWeatherType_BROKEN_CLOUDS" data-i18n="weather_broken">Broken Clouds</option>
+          <option value="GameModeSelectionWeatherType_OVERCAST" data-i18n="weather_overcast">Overcast</option>
+          <option value="GameModeSelectionWeatherType_DRIZZLE" data-i18n="weather_drizzle">Drizzle</option>
+          <option value="GameModeSelectionWeatherType_RAIN" data-i18n="weather_rain">Rain</option>
+          <option value="GameModeSelectionWeatherType_HEAVY_RAIN" data-i18n="weather_heavy_rain">Heavy Rain</option>
+          <option value="GameModeSelectionWeatherType_DAMP" data-i18n="weather_damp">Damp</option>
+        </select>
+      </div>
+      <div class="f"><label data-i18n="weather_behavior">Behaviour</label>
+        <select id="weatherBehavior">
+          <option value="GameModeSelectionWeatherBehaviour_STATIC" data-i18n="behavior_static">Static</option>
+          <option value="GameModeSelectionWeatherBehaviour_DYNAMIC" data-i18n="behavior_dynamic">Dynamic</option>
+        </select>
+      </div>
+      <div class="f"><label data-i18n="initial_grip">Initial Grip</label>
+        <select id="initialGrip">
+          <option value="InitialGrip_GREEN" data-i18n="grip_green">Green</option>
+          <option value="InitialGrip_FAST" data-i18n="grip_fast">Fast</option>
+          <option value="InitialGrip_OPTIMUM" data-i18n="grip_optimum">Optimum</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct"><span data-i18n="car_selection">Cars</span><span class="sc-cnt" id="carsCount" style="float:right"></span></div>
+    <div class="cars-tb">
+      <input type="text" id="carSearch" oninput="filterCars()">
+      <div class="chips">
+        <span class="chip" data-f="p1-0" onclick="tc(this)" data-i18n="filter_road">Road</span>
+        <span class="chip" data-f="p1-1" onclick="tc(this)" data-i18n="filter_race">Race</span>
+        <span class="chip" data-f="p1-2" onclick="tc(this)" data-i18n="filter_track">Track</span>
+        <span class="chip sep">|</span>
+        <span class="chip" data-f="p2-0" onclick="tc(this)" data-i18n="filter_modern">Modern</span>
+        <span class="chip" data-f="p2-1" onclick="tc(this)" data-i18n="filter_vintage">Vintage</span>
+        <span class="chip" data-f="p2-2" onclick="tc(this)" data-i18n="filter_young">Young Timer</span>
+        <span class="chip sep">|</span>
+        <span class="chip" data-f="p3-0" onclick="tc(this)" data-i18n="filter_ice">ICE</span>
+        <span class="chip" data-f="p3-1" onclick="tc(this)" data-i18n="filter_ev">EV</span>
+        <span class="chip" data-f="p3-2" onclick="tc(this)" data-i18n="filter_hybrid">Hybrid</span>
+        <span class="chip sep">|</span>
+        <span class="chip" data-f="sel" onclick="tc(this)" data-i18n="filter_selected">Selected</span>
+      </div>
+    </div>
+    <div class="cars-grid" id="carsGrid"></div>
+  </div>
+</div>
+
+<!-- SESSIONS -->
+<div class="tab" id="tab-sessions">
+  <div class="sg" id="sessionsGrid"></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="tab" id="tab-settings">
+  <div class="card">
+    <div class="ct" data-i18n="launcher_config">Launcher Config</div>
+    <p style="color:var(--text2);font-size:12px;margin-bottom:12px;line-height:1.7" data-i18n="launcher_config_note"></p>
+    <div class="fg">
+      <div class="f full"><label data-i18n="executable">Executable</label><input type="text" id="infoExePath" readonly></div>
+      <div class="f"><label data-i18n="web_port">Web Port</label><input type="text" id="infoWebPort" readonly></div>
+      <div class="f"><label data-i18n="server_count">Server Count</label><input type="text" id="infoServerCount" readonly></div>
+      <div class="f full"><label data-i18n="server_suffix">Server Suffix</label><input type="text" id="infoServerSuffix" readonly></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct" data-i18n="change_password">Change Password</div>
+    <div class="pwd-form">
+      <div class="f"><label data-i18n="old_password">Current Password</label><input type="password" id="pwdOld"></div>
+      <div class="f"><label data-i18n="new_password">New Password</label><input type="password" id="pwdNew"></div>
+      <div class="f"><label data-i18n="confirm_password">Confirm</label><input type="password" id="pwdConfirm" onkeydown="if(event.key==='Enter')changePwd()"></div>
+      <div class="pwd-err" id="pwdErr"></div>
+      <button class="btn btn-p" onclick="changePwd()" data-i18n="btn_change_pwd">Change Password</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct" data-i18n="theme_settings">Theme</div>
+    <div class="theme-grid" id="themeGrid"></div>
+    <div class="br" style="margin-top:14px">
+      <button class="btn btn-p" onclick="applyTheme()" data-i18n="btn_apply_theme">Apply Theme</button>
+      <button class="btn btn-s" onclick="resetTheme()" data-i18n="btn_reset_theme">Reset Default</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct" data-i18n="language">Language</div>
+    <div class="f" style="max-width:190px">
+      <select id="langSelSettings" onchange="onLangChange(this.value)">
+        <option value="en">🇬🇧 English</option><option value="it">🇮🇹 Italiano</option>
+        <option value="de">🇩🇪 Deutsch</option><option value="fr">🇫🇷 Français</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct" data-i18n="about">About</div>
+    <p style="color:var(--text2);font-size:13px;line-height:1.7" data-i18n="about_text"></p>
+    <p style="color:var(--text2);font-size:12px;margin-top:9px"><span data-i18n="settings_saved_to"></span> <code style="color:var(--accent)">~/ACE/server_N.json</code></p>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Preview Modal -->
+<div class="modal-ov" id="prevModal">
+  <div class="modal">
+    <div class="mh"><span style="font-weight:700" data-i18n="preview_title">JSON Preview</span><button class="xbtn" onclick="closePrev()">✕</button></div>
+    <div class="mb">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px" data-i18n="cmd_line">Command Line</div>
+      <div style="display:flex;gap:7px;margin-bottom:12px;align-items:flex-start">
+        <pre id="prevCmd" style="flex:1;word-break:break-all;white-space:pre-wrap;font-size:10px;max-height:65px;overflow-y:auto"></pre>
+        <button class="btn btn-s" style="flex-shrink:0;font-size:11px" onclick="copyCmd()" data-i18n="copy">📋 Copy</button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px" data-i18n="config_json">configuration.json</div>
+      <pre id="prevCfg"></pre>
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin:11px 0 5px" data-i18n="season_json">season.json</div>
+      <pre id="prevSeason"></pre>
+    </div>
+  </div>
+</div>
+<div class="toast-c" id="toastC"></div>
+
+<script>
+// ── i18n ──────────────────────────────────────────────────────────────────────
+let lang = localStorage.getItem('evo_lang') || 'en';
+function t(k){ return (I18N[lang]||I18N.en)[k] || (I18N.en[k]||k); }
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const v = t(el.dataset.i18n);
+    if(el.tagName==='INPUT' && el.type!=='hidden' && el.type!=='color') el.placeholder = v;
+    else el.innerHTML = v;
+  });
+  document.querySelectorAll('option[data-i18n]').forEach(o => o.textContent = t(o.dataset.i18n));
+  const cs = document.getElementById('carSearch'); if(cs) cs.placeholder = t('search_cars');
+  const dp = document.getElementById('driverPassword'); if(dp) dp.placeholder = t('no_password');
+  document.querySelectorAll('#langSel,#langSelSettings').forEach(s=>{ if(s) s.value = lang; });
+  updateLaunchBtn();
+  // Re-render sessions to update translated labels
+  if(settings) renderSessions();
+  renderThemePanel();
+}
+
+function onLangChange(l){ lang = l; localStorage.setItem('evo_lang', l); applyI18n(); }
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+const DEFAULT_THEME = {
+  '--bg':'#1a1a2e','--bg2':'#16213e','--bg3':'#0f3460','--card':'#1e2a45','--card2':'#253351',
+  '--accent':'#e94560','--accent2':'#c73652','--green':'#2ecc71','--yellow':'#f39c12',
+  '--red':'#e74c3c','--text':'#e8eaf0','--text2':'#9aa3b5','--border':'#2a3a5c','--input-bg':'#131d33'
+};
+
+const THEME_LABELS = {
+  '--bg': 'Background', '--bg2': 'Sidebar/Header', '--bg3': 'Deep Background',
+  '--card': 'Card', '--card2': 'Card Alt', '--accent': 'Accent (primary)',
+  '--accent2': 'Accent (hover)', '--green': 'Green', '--yellow': 'Yellow',
+  '--red': 'Red', '--text': 'Text', '--text2': 'Text Secondary',
+  '--border': 'Border', '--input-bg': 'Input Background'
+};
+
+function loadTheme(){
+  const saved = localStorage.getItem('evo_theme');
+  if(saved){ try{ return JSON.parse(saved); }catch{} }
+  return {...DEFAULT_THEME};
+}
+
+function saveThemeLS(theme){ localStorage.setItem('evo_theme', JSON.stringify(theme)); }
+
+function applyCSSTheme(theme){
+  const root = document.documentElement;
+  Object.entries(theme).forEach(([k,v]) => root.style.setProperty(k, v));
+}
+
+function renderThemePanel(){
+  const grid = document.getElementById('themeGrid');
+  if(!grid) return;
+  const theme = loadTheme();
+  grid.innerHTML = Object.entries(THEME_LABELS).map(([varName, label])=>`
+    <div class="theme-var">
+      <input type="color" id="tc_${varName.replace(/-/g,'_')}" value="${theme[varName]||DEFAULT_THEME[varName]}"
+        style="width:44px;height:32px;flex-shrink:0">
+      <label style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--text)">${label}</label>
+    </div>`).join('');
+}
+
+function applyTheme(){
+  const theme = {};
+  Object.keys(THEME_LABELS).forEach(varName=>{
+    const id = 'tc_'+varName.replace(/-/g,'_');
+    const el = document.getElementById(id);
+    if(el) theme[varName] = el.value;
+  });
+  saveThemeLS(theme);
+  applyCSSTheme(theme);
+  toast(t('theme_applied')||'Theme applied!', 'success');
+}
+
+function resetTheme(){
+  saveThemeLS({...DEFAULT_THEME});
+  applyCSSTheme({...DEFAULT_THEME});
+  renderThemePanel();
+  toast(t('theme_reset')||'Theme reset!', 'success');
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let sid=1, srvCount=1, settings=null, info=null, allCars=[], filters=new Set(), logOff=0, statuses=[];
+
+function tok(){ return sessionStorage.getItem('evo_token')||''; }
+
+async function api(url, method='GET', body){
+  const o = {method, headers:{'Content-Type':'application/json','x-auth-token':tok()}};
+  if(body) o.body = JSON.stringify(body);
+  const r = await fetch(url, o);
+  if(r.status===401){ location.href='/'; return {}; }
+  return r.json();
+}
+
+async function logout(){ await api('/api/auth/logout','POST'); sessionStorage.removeItem('evo_token'); location.href='/'; }
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function boot(){
+  if(!tok()){ location.href='/'; return; }
+  // Apply saved theme immediately
+  applyCSSTheme(loadTheme());
+  applyI18n();
+  info = await api('/api/launcher-info');
+  srvCount = info.serverCount || 1;
+  if(info.language && !localStorage.getItem('evo_lang')) onLangChange(info.language);
+  buildSrvSel();
+  populateInfo();
+  renderThemePanel();
+  await switchSrv(1);
+  startPoll();
+}
+
+// ── Server selector ───────────────────────────────────────────────────────────
+function buildSrvSel(){
+  const s = document.getElementById('serverSelect'); s.innerHTML = '';
+  (info.servers||[]).forEach(sv => s.add(new Option(`#${sv.id} ${sv.name}`, sv.id)));
+}
+
+function updateSrvSel(){
+  document.querySelectorAll('#serverSelect option').forEach(o=>{
+    const st = statuses.find(s=>s.id===parseInt(o.value));
+    const sv = (info.servers||[]).find(s=>s.id===parseInt(o.value));
+    o.textContent = `${st?.running?'🟢':'🔴'} #${o.value} ${sv?sv.name:'Server '+o.value}`;
+  });
+}
+
+async function onSrvSwitch(){ await switchSrv(parseInt(document.getElementById('serverSelect').value)); }
+
+async function switchSrv(id){
+  sid = id; logOff = 0; document.getElementById('logBox').innerHTML = '';
+  settings = await api(`/api/servers/${id}/settings`);
+  populateForm(); renderSessions(); await loadAssets(); updateLaunchSummary();
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+  document.querySelector(`[data-tab="${n}"]`).classList.add('active');
+}
+
+// ── Form ──────────────────────────────────────────────────────────────────────
+function sv(id,v){ const e=document.getElementById(id); if(e) e.value=v??''; }
+function gv(id){ return document.getElementById(id)?.value??''; }
+
+function populateForm(){
+  if(!settings) return;
+  sv('serverName',settings.serverName); sv('serverType',settings.selectedServerTypeValue);
+  sv('tcpPort',settings.tcpPort); sv('udpPort',settings.udpPort); sv('httpPort',settings.httpPort);
+  sv('maxPlayers',settings.maxPlayers); sv('maxPlayersLimit',settings.maxPlayersLimit);
+  document.getElementById('isCycleEnabled').checked = settings.isCycleEnabled;
+  sv('driverPassword',settings.driverPassword); sv('spectatorPassword',settings.spectatorPassword);
+  sv('adminPassword',settings.adminPassword); sv('entryListPath',settings.entryListPath); sv('resultsPath',settings.resultsPath);
+  sv('sessionType',settings.Event.selectedSessionTypeValue);
+  sv('weatherType',settings.Event.selectedWeatherTypeValue);
+  sv('weatherBehavior',settings.Event.selectedWeatherBehaviorValue);
+  sv('initialGrip',settings.Event.selectedInitialGripValue);
+}
+
+function collectForm(){
+  if(!settings) return;
+  settings.serverName = gv('serverName'); settings.selectedServerTypeValue = gv('serverType');
+  settings.tcpPort = parseInt(gv('tcpPort')); settings.udpPort = parseInt(gv('udpPort')); settings.httpPort = parseInt(gv('httpPort'));
+  settings.maxPlayers = parseInt(gv('maxPlayers')); settings.maxPlayersLimit = parseInt(gv('maxPlayersLimit'));
+  settings.isCycleEnabled = document.getElementById('isCycleEnabled').checked;
+  settings.driverPassword = gv('driverPassword'); settings.spectatorPassword = gv('spectatorPassword');
+  settings.adminPassword = gv('adminPassword'); settings.entryListPath = gv('entryListPath'); settings.resultsPath = gv('resultsPath');
+  settings.Event.selectedSessionTypeValue = gv('sessionType');
+  settings.Event.selectedTrackValue = gv('trackSelect');
+  settings.Event.selectedWeatherTypeValue = gv('weatherType');
+  settings.Event.selectedWeatherBehaviorValue = gv('weatherBehavior');
+  settings.Event.selectedInitialGripValue = gv('initialGrip');
+  collectSessions();
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+// FIX: collect session values from DOM before re-rendering (prevents losing state)
+function collectSessions(){
+  if(!settings) return;
+  ['Practice','Qualifying','Warmup','Race'].forEach(n=>{
+    const key = n+'Session', sess = settings.Sessions[key];
+    const lenEl = document.getElementById(n+'Len');
+    if(lenEl){
+      const isLaps = n==='Race' && document.getElementById('RaceDurT')?.value==='1';
+      sess.length = isLaps ? parseInt(lenEl.value)||0 : (parseInt(lenEl.value)||0)*60;
+    }
+    const tmi = document.getElementById(n+'TMI'); if(tmi) sess.timeMultiplierIndex = parseInt(tmi.value);
+    const h = document.getElementById(n+'H'); if(h) sess.hour = parseInt(h.value)||0;
+    const m = document.getElementById(n+'M'); if(m) sess.minute = parseInt(m.value)||0;
+    const wb = document.getElementById(n+'WB'); if(wb) sess.maxWaitToBox = parseInt(wb.value)||0;
+    const ow = document.getElementById(n+'OW'); if(ow) sess.overtimeWaitingNextSession = parseInt(ow.value)||0;
+    if(n==='Race'){
+      const dt = document.getElementById('RaceDurT'); if(dt) sess.duration = parseInt(dt.value)||0;
+      const mn = document.getElementById('RaceMinW'); if(mn) sess.minWaitingForPlayers = parseInt(mn.value)||0;
+      const mx = document.getElementById('RaceMaxW'); if(mx) sess.maxWaitingForPlayers = parseInt(mx.value)||0;
+    }
+  });
+}
+
+const TM = [1,2,4,8,16,32,64,128];
+
+function renderSessions(){
+  const grid = document.getElementById('sessionsGrid');
+  if(!settings) return;
+  const isPractice = settings.Event.selectedSessionTypeValue === 'GameModeType_PRACTICE';
+  const defs = [
+    {key:'PracticeSession',   label:'Practice',   id:'Practice',   hide:false, dur:false},
+    {key:'QualifyingSession', label:'Qualifying',  id:'Qualifying', hide:true,  dur:false},
+    {key:'WarmupSession',     label:'Warmup',      id:'Warmup',     hide:true,  dur:false},
+    {key:'RaceSession',       label:'Race',        id:'Race',       hide:true,  dur:true}
+  ];
+  grid.innerHTML = defs.map(d=>{
+    const s = settings.Sessions[d.key];
+    // In Practice mode, hide Qualifying/Warmup/Race cards entirely (like the original app)
+    if(d.hide && isPractice) return '';
+    const isLaps = d.id==='Race' && s.duration===1;
+    const durVal = isLaps ? s.length : Math.round(s.length/60);
+    const durLbl = isLaps ? t('duration_laps') : t('duration_min');
+    return `<div class="scard">
+      <div class="st">
+        <span>${d.label}</span>
+        ${d.hide ? `<label class="toggle" style="flex-shrink:0">
+          <input type="checkbox" ${s.isVisible?'checked':''} onchange="togSess('${d.key}',this.checked)">
+          <span class="tsl"></span>
+        </label>` : ''}
+      </div>
+      <div class="scard-body ${s.isVisible?'':'disabled'}">
+        <div class="fg2">
+          ${d.dur ? `<div class="f full">
+            <label>${t('duration_type')}</label>
+            <select id="RaceDurT" onchange="onRaceDurChange()">
+              <option value="0" ${s.duration===0?'selected':''}>${t('dur_time')}</option>
+              <option value="1" ${s.duration===1?'selected':''}>${t('dur_laps')}</option>
+            </select>
+          </div>` : ''}
+          <div class="f"><label>${durLbl}</label><input type="number" id="${d.id}Len" value="${durVal}" min="0"></div>
+          <div class="f"><label>${t('time_multiplier')}</label>
+            <select id="${d.id}TMI">${TM.map((v,i)=>`<option value="${i}" ${s.timeMultiplierIndex===i?'selected':''}>×${v}</option>`).join('')}</select>
+          </div>
+          <div class="f"><label>${t('start_hour')}</label><input type="number" id="${d.id}H" value="${s.hour}" min="0" max="23"></div>
+          <div class="f"><label>${t('start_minute')}</label><input type="number" id="${d.id}M" value="${s.minute}" min="0" max="59"></div>
+          <div class="f"><label>${t('max_wait_box')}</label><input type="number" id="${d.id}WB" value="${s.maxWaitToBox}"></div>
+          <div class="f"><label>${t('overtime_wait')}</label><input type="number" id="${d.id}OW" value="${s.overtimeWaitingNextSession}"></div>
+          ${d.id==='Race' ? `
+          <div class="f"><label>${t('min_wait_players')}</label><input type="number" id="RaceMinW" value="${s.minWaitingForPlayers}"></div>
+          <div class="f"><label>${t('max_wait_players')}</label><input type="number" id="RaceMaxW" value="${s.maxWaitingForPlayers}"></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// FIX: collect before re-render so values are not lost when changing duration type
+function onRaceDurChange(){
+  collectSessions();
+  renderSessions();
+}
+
+// FIX: toggle stores value in settings and re-renders — the toggle is outside disabled area
+function togSess(key, visible){
+  settings.Sessions[key].isVisible = visible;
+  renderSessions();
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveAll(){
+  collectForm();
+  await api(`/api/servers/${sid}/settings`, 'POST', settings);
+  if(allCars.length) await api('/api/assets/cars', 'POST', {cars: allCars});
+  info = await api('/api/launcher-info'); buildSrvSel(); updateSrvSel();
+  toast(t('saved'), 'success'); updateLaunchSummary();
+}
+
+// ── Assets ────────────────────────────────────────────────────────────────────
+async function loadAssets(){
+  const d = await api('/api/assets');
+  allCars = d.cars || []; renderCars(); populateTracks(d);
+}
+
+function populateTracks(d){
+  const mode = gv('sessionType');
+  const tracks = mode==='GameModeType_PRACTICE' ? d.tracks_practice : d.tracks_race;
+  const sel = document.getElementById('trackSelect'), cur = settings?.Event?.selectedTrackValue||'';
+  sel.innerHTML = '';
+  if(!tracks||!tracks.length){ sel.innerHTML=`<option value="">${t('track_placeholder')}</option>`; return; }
+  tracks.forEach(tr=>{
+    const k = `${tr.track}|${tr.layout}|${tr.event_name}|${tr.track_length}`;
+    const km = (tr.track_length*0.001).toFixed(2);
+    const o = new Option(`${tr.track} ${tr.layout} [${km}km]`, k);
+    if(k===cur) o.selected = true;
+    sel.add(o);
+  });
+}
+
+async function onSessionTypeChange(){
+  collectForm();
+  const d = await api('/api/assets'); populateTracks(d);
+  const isR = gv('sessionType')==='GameModeType_RACE_WEEKEND';
+  ['Qualifying','Warmup','Race'].forEach(n=>{ settings.Sessions[n+'Session'].isVisible = isR; });
+  renderSessions();
+}
+
+// ── Cars ──────────────────────────────────────────────────────────────────────
+function P1L(){ return [t('filter_road'),t('filter_race'),t('filter_track')]; }
+function P2L(){ return [t('filter_modern'),t('filter_vintage'),t('filter_young')]; }
+function P3L(){ return [t('filter_ice'),t('filter_ev'),t('filter_hybrid')]; }
+
+function renderCars(){
+  const grid = document.getElementById('carsGrid'), search = gv('carSearch').toLowerCase();
+  const fil = allCars.filter(c=>{
+    if(search && !((c.display_name||'').toLowerCase().includes(search)||(c.name||'').toLowerCase().includes(search))) return false;
+    if(filters.has('sel') && !c.is_selected) return false;
+    if(filters.has('p1-0') && c.property_1!==0) return false;
+    if(filters.has('p1-1') && c.property_1!==1) return false;
+    if(filters.has('p1-2') && c.property_1!==2) return false;
+    if(filters.has('p2-0') && c.property_2!==0) return false;
+    if(filters.has('p2-1') && c.property_2!==1) return false;
+    if(filters.has('p2-2') && c.property_2!==2) return false;
+    if(filters.has('p3-0') && c.property_3!==0) return false;
+    if(filters.has('p3-1') && c.property_3!==1) return false;
+    if(filters.has('p3-2') && c.property_3!==2) return false;
+    return true;
+  });
+  if(!fil.length){
+    grid.innerHTML = `<div style="grid-column:1/-1;color:var(--text2);text-align:center;padding:26px">${allCars.length===0?t('set_exe_first'):t('no_cars_match')}</div>`;
+    return;
+  }
+  grid.innerHTML = fil.map(c=>`<div class="cc ${c.is_selected?'sel':''}" onclick="toggleCar('${c.name.replace(/'/g,"\\'")}')">
+    <div class="cn">${c.display_name||c.name}</div>
+    <div class="cm">${P1L()[c.property_1]||''} · ${P2L()[c.property_2]||''} · ${P3L()[c.property_3]||''}</div>
+    <div class="cpi">PI: ${c.performance_indicator?.toFixed(0)??'?'}</div>
+  </div>`).join('');
+  document.getElementById('carsCount').textContent = `${allCars.filter(c=>c.is_selected).length}/${allCars.length}`;
+}
+
+function toggleCar(n){ const c=allCars.find(c=>c.name===n); if(c){c.is_selected=!c.is_selected;renderCars();} }
+function filterCars(){ renderCars(); }
+function tc(el){
+  const f=el.dataset.f; if(!f||el.classList.contains('sep')) return;
+  filters.has(f) ? (filters.delete(f),el.classList.remove('on')) : (filters.add(f),el.classList.add('on'));
+  renderCars();
+}
+
+// ── Info & Password ───────────────────────────────────────────────────────────
+function populateInfo(){
+  if(!info) return;
+  sv('infoExePath', info.executablePath||'(not set)');
+  sv('infoWebPort', location.port||'3000');
+  sv('infoServerCount', info.serverCount);
+  sv('infoServerSuffix', info.serverSuffix||'(not set)');
+}
+
+async function changePwd(){
+  const o=gv('pwdOld'), n=gv('pwdNew'), c=gv('pwdConfirm');
+  const err=document.getElementById('pwdErr');
+  err.style.display='none';
+  if(n!==c){ err.textContent=t('pwd_mismatch'); err.style.display='block'; return; }
+  if(n.length<4){ err.textContent=t('pwd_too_short'); err.style.display='block'; return; }
+  const r = await api('/api/auth/change-password','POST',{oldPassword:o,newPassword:n});
+  if(r.error){ err.textContent=r.error; err.style.display='block'; return; }
+  toast(t('pwd_changed'),'success');
+  setTimeout(()=>{ sessionStorage.removeItem('evo_token'); location.href='/'; }, 1800);
+}
+
+// ── Launch ────────────────────────────────────────────────────────────────────
+function updateLaunchSummary(){
+  if(!settings) return;
+  document.getElementById('lname').textContent = settings.serverName || `ACEVO Server ${sid}`;
+  const tr = document.getElementById('trackSelect')?.selectedOptions[0]?.text || '';
+  document.getElementById('lsummary').textContent =
+    `TCP:${settings.tcpPort} · UDP:${settings.udpPort} · ${settings.maxPlayers}p${tr?' · '+tr:''}`;
+}
+
+function updateLaunchBtn(){
+  const btn = document.getElementById('launchBtn'); if(!btn) return;
+  const running = statuses.find(s=>s.id===sid)?.running;
+  if(running){ btn.className='lbtn stop'; btn.textContent=t('stop_server'); btn.onclick=stopServer; }
+  else { btn.className='lbtn start'; btn.textContent=t('start_server'); btn.onclick=startServer; }
+}
+
+async function startServer(){
+  collectForm();
+  await api(`/api/servers/${sid}/settings`,'POST',settings);
+  const r = await api(`/api/servers/${sid}/start`,'POST');
+  if(r.error){ toast(t('error_prefix')+r.error,'error'); return; }
+  toast(t('server_started')+r.pid,'success'); logOff=0;
+}
+
+async function stopServer(){
+  const r = await api(`/api/servers/${sid}/stop`,'POST');
+  if(r.error){ toast(r.error,'error'); return; }
+  toast(t('stop_sent'),'success');
+}
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+function startPoll(){ setInterval(pollSt,2000); setInterval(loadLogs,1500); }
+
+async function pollSt(){
+  statuses = await api('/api/servers/status') || [];
+  const st = statuses.find(s=>s.id===sid), running = st?.running;
+  document.getElementById('statusDot').className = 'dot '+(running?'running':'stopped');
+  document.getElementById('statusText').textContent = running?`${t('server_running')} (PID:${st.pid})`:t('server_offline');
+  document.getElementById('launchPanel').classList.toggle('running', !!running);
+  updateLaunchBtn(); updateSrvSel();
+}
+
+async function loadLogs(){
+  const logs = await api(`/api/servers/${sid}/logs?since=${logOff}`);
+  if(!logs||!logs.length) return;
+  logOff += logs.length;
+  const box = document.getElementById('logBox');
+  logs.forEach(l=>{
+    const d = document.createElement('div'); d.className='ll '+l.type;
+    d.innerHTML = `<span class="lt">${new Date(l.time).toLocaleTimeString()}</span>${esc(l.text)}`;
+    box.appendChild(d);
+  });
+  if(document.getElementById('autoScroll').checked) box.scrollTop = box.scrollHeight;
+}
+
+function clearLogs(){ document.getElementById('logBox').innerHTML=''; logOff=0; }
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+async function openPreview(){
+  collectForm();
+  const d = await api(`/api/servers/${sid}/preview`);
+  document.getElementById('prevCfg').textContent = d.config||'(empty)';
+  document.getElementById('prevSeason').textContent = d.season||t('no_exe_set');
+  document.getElementById('prevCmd').textContent = d.cmd||t('no_exe_set');
+  document.getElementById('prevModal').classList.add('open');
+}
+function closePrev(){ document.getElementById('prevModal').classList.remove('open'); }
+function copyCmd(){ navigator.clipboard.writeText(document.getElementById('prevCmd').textContent).then(()=>toast(t('copied'),'success')); }
+document.getElementById('prevModal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closePrev(); });
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='info'){
+  const c=document.getElementById('toastC'), el=document.createElement('div');
+  el.className='toast '+type; el.textContent=msg; c.appendChild(el);
+  setTimeout(()=>el.remove(), 3400);
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+boot();
+</script>
+</body>
+</html>

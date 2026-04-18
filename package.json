@@ -1,0 +1,12 @@
+{
+  "name": "evo-server-launcher",
+  "version": "1.0.0",
+  "description": "Web-based launcher for Assetto Corsa EVO dedicated server",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
