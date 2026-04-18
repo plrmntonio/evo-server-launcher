@@ -124,6 +124,7 @@ input[type=color]{height:36px;padding:2px 4px;cursor:pointer;border-radius:5px}
   <button class="nb" onclick="switchTab('sessions')" data-tab="sessions"><span class="ic">🕐</span><span data-i18n="nav_sessions">Sessions</span></button>
   <button class="nb" onclick="switchTab('settings')" data-tab="settings"><span class="ic">🔧</span><span data-i18n="nav_settings">Settings</span></button>
   <div class="sp"></div>
+  <button class="nb" onclick="switchTab('presets')" data-tab="presets"><span class="ic">📋</span><span data-i18n="nav_presets">Presets</span></button>
   <button class="nb" onclick="saveAll()" style="color:var(--green)"><span class="ic">💾</span><span data-i18n="nav_save">Save</span></button>
 </nav>
 
@@ -285,6 +286,26 @@ input[type=color]{height:36px;padding:2px 4px;cursor:pointer;border-radius:5px}
   <div class="sg" id="sessionsGrid"></div>
 </div>
 
+<!-- PRESETS -->
+<div class="tab" id="tab-presets">
+  <div class="card">
+    <div class="ct"><span data-i18n="presets_title">Event & Session Presets</span></div>
+    <p style="color:var(--text2);font-size:12px;margin-bottom:14px;line-height:1.7" data-i18n="presets_desc">
+      Save the current Event and Sessions configuration as a named preset. Presets are shared across all servers.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input type="text" id="presetName" style="flex:1" data-i18n="preset_name_placeholder">
+      <button class="btn btn-p" onclick="savePreset()" data-i18n="btn_save_preset">💾 Save Preset</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" data-i18n="presets_saved">Saved Presets</div>
+    <div id="presetsList" style="display:flex;flex-direction:column;gap:8px">
+      <div style="color:var(--text2);font-size:13px" data-i18n="presets_empty">No presets saved yet.</div>
+    </div>
+  </div>
+</div>
+
 <!-- SETTINGS -->
 <div class="tab" id="tab-settings">
   <div class="card">
@@ -442,7 +463,7 @@ function resetTheme(){
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let sid=1, srvCount=1, settings=null, info=null, allCars=[], filters=new Set(), logOff=0, statuses=[];
+let sid=1, srvCount=1, settings=null, info=null, allCars=[], filters=new Set(), logOff=0, logDisplayOffset=0, statuses=[];
 
 function tok(){ return sessionStorage.getItem('evo_token')||''; }
 
@@ -469,6 +490,7 @@ async function boot(){
   populateInfo();
   renderThemePanel();
   await switchSrv(1);
+  await loadPresetsList();
   startPoll();
 }
 
@@ -489,9 +511,17 @@ function updateSrvSel(){
 async function onSrvSwitch(){ await switchSrv(parseInt(document.getElementById('serverSelect').value)); }
 
 async function switchSrv(id){
-  sid = id; logOff = 0; document.getElementById('logBox').innerHTML = '';
+  sid = id;
+  logDisplayOffset = 0; // local display offset for clear
+  logOff = 0;
+  document.getElementById('logBox').innerHTML = '';
   settings = await api(`/api/servers/${id}/settings`);
-  populateForm(); renderSessions(); await loadAssets(); updateLaunchSummary();
+  // Restore selector to correct server (buildSrvSel resets it)
+  document.getElementById('serverSelect').value = id;
+  populateForm();
+  renderSessions();
+  await loadAssets(); // populateTracks inside uses settings.Event.selectedTrackValue
+  updateLaunchSummary();
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -642,15 +672,20 @@ function togSess(key, visible){
 // ── Save ──────────────────────────────────────────────────────────────────────
 async function saveAll(){
   collectForm();
-  await api(`/api/servers/${sid}/settings`, 'POST', settings);
-  if(allCars.length) await api('/api/assets/cars', 'POST', {cars: allCars});
-  info = await api('/api/launcher-info'); buildSrvSel(); updateSrvSel();
+  const currentSid = sid; // save before any rebuild
+  await api(`/api/servers/${currentSid}/settings`, 'POST', settings);
+  if(allCars.length) await api(`/api/assets/cars?sid=${currentSid}`, 'POST', {cars: allCars});
+  info = await api('/api/launcher-info');
+  buildSrvSel();
+  // Restore the correct server in the selector after rebuild
+  document.getElementById('serverSelect').value = currentSid;
+  updateSrvSel();
   toast(t('saved'), 'success'); updateLaunchSummary();
 }
 
 // ── Assets ────────────────────────────────────────────────────────────────────
 async function loadAssets(){
-  const d = await api('/api/assets');
+  const d = await api(`/api/assets?sid=${sid}`);
   allCars = d.cars || []; renderCars(); populateTracks(d);
 }
 
@@ -699,7 +734,7 @@ function onTrackChange(){
 
 async function onSessionTypeChange(){
   collectForm();
-  const d = await api('/api/assets'); populateTracks(d);
+  const d = await api(`/api/assets?sid=${sid}`); populateTracks(d);
   const isR = gv('sessionType')==='GameModeType_RACE_WEEKEND';
   ['Qualifying','Warmup','Race'].forEach(n=>{ settings.Sessions[n+'Session'].isVisible = isR; });
   renderSessions();
@@ -827,9 +862,13 @@ async function pollSt(){
 async function loadLogs(){
   const logs = await api(`/api/servers/${sid}/logs?since=${logOff}`);
   if(!logs||!logs.length) return;
+  const startIdx = logOff;
   logOff += logs.length;
+  // Only display logs after the clear point
+  const toShow = logs.slice(Math.max(0, logDisplayOffset - startIdx));
+  if(!toShow.length) return;
   const box = document.getElementById('logBox');
-  logs.forEach(l=>{
+  toShow.forEach(l=>{
     const d = document.createElement('div'); d.className='ll '+l.type;
     d.innerHTML = `<span class="lt">${new Date(l.time).toLocaleTimeString()}</span>${esc(l.text)}`;
     box.appendChild(d);
@@ -837,7 +876,10 @@ async function loadLogs(){
   if(document.getElementById('autoScroll').checked) box.scrollTop = box.scrollHeight;
 }
 
-function clearLogs(){ document.getElementById('logBox').innerHTML=''; logOff=0; }
+function clearLogs(){
+  document.getElementById('logBox').innerHTML='';
+  logDisplayOffset = logOff; // don't re-display logs already received before clear
+}
 
 // ── Preview ───────────────────────────────────────────────────────────────────
 async function openPreview(){
@@ -859,6 +901,69 @@ function toast(msg, type='info'){
   setTimeout(()=>el.remove(), 3400);
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+let presets = [];
+
+async function loadPresetsList(){
+  presets = await api('/api/presets') || [];
+  renderPresets();
+}
+
+function renderPresets(){
+  const el = document.getElementById('presetsList');
+  if(!presets.length){
+    el.innerHTML = `<div style="color:var(--text2);font-size:13px">${t('presets_empty')}</div>`;
+    return;
+  }
+  el.innerHTML = presets.map(p=>`
+    <div style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:10px 14px">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${esc(p.name)}</div>
+        <div style="font-size:11px;color:var(--text2)">${new Date(p.savedAt).toLocaleString()} · ${p.event?.selectedSessionTypeValue?.includes('PRACTICE')?t('mode_practice'):t('mode_race')}</div>
+      </div>
+      <button class="btn btn-s" style="font-size:12px;padding:5px 11px" onclick="applyPreset('${esc(p.name)}')" data-i18n="btn_load_preset">▶ Load</button>
+      <button class="btn btn-r" style="font-size:12px;padding:5px 11px" onclick="deletePreset('${esc(p.name)}')">🗑</button>
+    </div>`).join('');
+}
+
+async function savePreset(){
+  // Collect current DOM values into settings before saving
+  collectForm();
+  const name = document.getElementById('presetName').value.trim();
+  if(!name){ toast(t('preset_name_required'), 'error'); return; }
+  const existing = presets.find(p=>p.name===name);
+  if(existing && !confirm(t('preset_overwrite_confirm').replace('{name}', name))) return;
+  // Deep-clone Event and Sessions to avoid reference issues
+  const eventSnap    = JSON.parse(JSON.stringify(settings.Event));
+  const sessionsSnap = JSON.parse(JSON.stringify(settings.Sessions));
+  await api('/api/presets', 'POST', { name, event: eventSnap, sessions: sessionsSnap });
+  document.getElementById('presetName').value = '';
+  await loadPresetsList();
+  toast(t('preset_saved'), 'success');
+}
+
+async function applyPreset(name){
+  const p = presets.find(p=>p.name===name);
+  if(!p) return;
+  // Deep-replace (not shallow merge) so nested session objects are fully replaced
+  settings.Event    = JSON.parse(JSON.stringify(p.event));
+  settings.Sessions = JSON.parse(JSON.stringify(p.sessions));
+  // Re-populate the form fields from the new settings
+  populateForm();
+  renderSessions();
+  // Reload tracks (which also restores the correct track selection)
+  const d = await api(`/api/assets?sid=${sid}`);
+  populateTracks(d);
+  toast(`${t('preset_applied')}: ${name}`, 'success');
+}
+
+async function deletePreset(name){
+  if(!confirm(t('preset_delete_confirm').replace('{name}', name))) return;
+  await api(`/api/presets/${encodeURIComponent(name)}`, 'DELETE');
+  await loadPresetsList();
+  toast(t('preset_deleted'), 'success');
+}
 
 boot();
 </script>

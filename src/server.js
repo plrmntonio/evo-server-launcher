@@ -67,8 +67,22 @@ function addLog(sid, text, type = 'info') {
 // ─── Settings paths ───────────────────────────────────────────────────────────
 const SETTINGS_DIR = path.join(os.homedir(), 'ACE');
 
+const PRESETS_FILE = path.join(SETTINGS_DIR, 'presets.json');
+
 function ensureDirs() {
   if (!fs.existsSync(SETTINGS_DIR)) fs.mkdirSync(SETTINGS_DIR, { recursive: true });
+}
+
+function loadPresets() {
+  if (fs.existsSync(PRESETS_FILE)) {
+    try { return JSON.parse(fs.readFileSync(PRESETS_FILE, 'utf8')); } catch {}
+  }
+  return [];
+}
+
+function savePresets(presets) {
+  ensureDirs();
+  fs.writeFileSync(PRESETS_FILE, JSON.stringify(presets, null, 2), 'utf8');
 }
 
 function settingsPath(sid) {
@@ -124,6 +138,7 @@ function defaultSettings(sid) {
       selectedWeatherBehaviorValue: 'GameModeSelectionWeatherBehaviour_STATIC',
       selectedInitialGripValue: 'InitialGrip_GREEN'
     },
+    selectedCars: [], // array of car names selected for this server
     Sessions: {
       PracticeSession:   { name:'Practice',   isVisible:true,  duration:0, length:1200, hour:16, minute:0, timeMultiplierIndex:0, maxWaitToBox:10, overtimeWaitingNextSession:10, minWaitingForPlayers:10, maxWaitingForPlayers:30 },
       QualifyingSession: { name:'Qualifying',  isVisible:false, duration:0, length:600,  hour:16, minute:0, timeMultiplierIndex:0, maxWaitToBox:10, overtimeWaitingNextSession:10, minWaitingForPlayers:10, maxWaitingForPlayers:30 },
@@ -175,9 +190,17 @@ function buildConfigJson(settings) {
   let allowedCars = [];
   if (exePath) {
     try {
-      const cars = JSON.parse(fs.readFileSync(path.join(path.dirname(exePath), 'cars.json'), 'utf8'));
-      allowedCars = (cars.cars || []).filter(c => c.is_selected)
-        .map(c => ({ car_name: c.name, ballast: Math.round(c.ballast || 0), restrictor: parseFloat(c.restrictor || 0) }));
+      const allCars = JSON.parse(fs.readFileSync(path.join(path.dirname(exePath), 'cars.json'), 'utf8')).cars || [];
+      const selectedSet = new Set(settings.selectedCars || []);
+      // If server has explicit selection use it, otherwise fall back to is_selected in cars.json
+      const filtered = selectedSet.size > 0
+        ? allCars.filter(c => selectedSet.has(c.name))
+        : allCars.filter(c => c.is_selected);
+      allowedCars = filtered.map(c => ({
+        car_name: c.name,
+        ballast: Math.round(c.ballast || 0),
+        restrictor: parseFloat(c.restrictor || 0)
+      }));
     } catch {}
   }
   return {
@@ -287,14 +310,33 @@ app.get('/api/assets', (req, res) => {
   try { cars = JSON.parse(fs.readFileSync(path.join(dir, 'cars.json'), 'utf8')).cars || []; } catch {}
   try { tp   = JSON.parse(fs.readFileSync(path.join(dir, 'events_practice.json'), 'utf8')).events || []; } catch {}
   try { tr   = JSON.parse(fs.readFileSync(path.join(dir, 'events_race_weekend.json'), 'utf8')).events || []; } catch {}
+
+  // Apply per-server car selection from query param ?sid=N
+  const sid = parseInt(req.query.sid || '1');
+  if (!isNaN(sid) && sid >= 1) {
+    const srvSettings = loadSettings(sid);
+    const selected = new Set(srvSettings.selectedCars || []);
+    if (selected.size > 0) {
+      cars = cars.map(c => ({ ...c, is_selected: selected.has(c.name) }));
+    } else {
+      // No selection saved yet — clear all is_selected flags
+      cars = cars.map(c => ({ ...c, is_selected: false }));
+    }
+  }
+
   res.json({ cars, tracks_practice: tp, tracks_race: tr });
 });
 
 app.post('/api/assets/cars', (req, res) => {
-  const exePath = EXE_PATH();
-  if (!exePath) return res.status(400).json({ error: 'No exe path in config.json' });
+  // Save selected car names into the server's own settings (not cars.json)
+  const sid = parseInt(req.query.sid || req.body.sid || '1');
+  if (isNaN(sid) || sid < 1) return res.status(400).json({ error: 'Invalid sid' });
   try {
-    fs.writeFileSync(path.join(path.dirname(exePath), 'cars.json'), JSON.stringify({ cars: req.body.cars }, null, 2), 'utf8');
+    const cars = req.body.cars || [];
+    const selectedCars = cars.filter(c => c.is_selected).map(c => c.name);
+    const settings = loadSettings(sid);
+    settings.selectedCars = selectedCars;
+    saveSettings(sid, settings);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -370,6 +412,32 @@ app.get('/api/servers/:sid/logs', (req, res) => {
   const sid = parseSid(req, res); if (!sid) return;
   const since = parseInt(req.query.since || '0', 10);
   res.json(getServerLogs(sid).slice(since));
+});
+
+// ─── Presets (shared Event + Sessions configs) ────────────────────────────────
+
+// List all presets
+app.get('/api/presets', (req, res) => res.json(loadPresets()));
+
+// Save a new preset (or overwrite by name)
+app.post('/api/presets', (req, res) => {
+  const { name, event, sessions } = req.body;
+  if (!name || !event || !sessions) return res.status(400).json({ error: 'name, event and sessions are required' });
+  const presets = loadPresets();
+  const idx = presets.findIndex(p => p.name === name);
+  const preset = { name, event, sessions, savedAt: new Date().toISOString() };
+  if (idx >= 0) presets[idx] = preset;
+  else presets.push(preset);
+  savePresets(presets);
+  res.json({ ok: true });
+});
+
+// Delete a preset by name
+app.delete('/api/presets/:name', (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  const presets = loadPresets().filter(p => p.name !== name);
+  savePresets(presets);
+  res.json({ ok: true });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
