@@ -261,17 +261,17 @@ input[type=color]{height:36px;padding:2px 4px;cursor:pointer;border-radius:5px}
     <div class="cars-tb">
       <input type="text" id="carSearch" oninput="filterCars()">
       <div class="chips">
-        <span class="chip" data-f="p1-0" onclick="tc(this)" data-i18n="filter_road">Road</span>
-        <span class="chip" data-f="p1-1" onclick="tc(this)" data-i18n="filter_race">Race</span>
-        <span class="chip" data-f="p1-2" onclick="tc(this)" data-i18n="filter_track">Track</span>
+        <span class="chip" data-f="p1-0" onclick="tc(this)" data-i18n="filter_road" data-color="#e74c3c">Road</span>
+        <span class="chip" data-f="p1-1" onclick="tc(this)" data-i18n="filter_race" data-color="#e67e22">Race</span>
+        <span class="chip" data-f="p1-2" onclick="tc(this)" data-i18n="filter_track" data-color="#5dade2">Track</span>
         <span class="chip sep">|</span>
-        <span class="chip" data-f="p2-0" onclick="tc(this)" data-i18n="filter_modern">Modern</span>
-        <span class="chip" data-f="p2-1" onclick="tc(this)" data-i18n="filter_vintage">Vintage</span>
-        <span class="chip" data-f="p2-2" onclick="tc(this)" data-i18n="filter_young">Young Timer</span>
+        <span class="chip" data-f="p2-0" onclick="tc(this)" data-i18n="filter_modern" data-color="#27ae60">Modern</span>
+        <span class="chip" data-f="p2-1" onclick="tc(this)" data-i18n="filter_vintage" data-color="#d4a017">Vintage</span>
+        <span class="chip" data-f="p2-2" onclick="tc(this)" data-i18n="filter_young" data-color="#8e44ad">Young Timer</span>
         <span class="chip sep">|</span>
-        <span class="chip" data-f="p3-0" onclick="tc(this)" data-i18n="filter_ice">ICE</span>
-        <span class="chip" data-f="p3-1" onclick="tc(this)" data-i18n="filter_ev">EV</span>
-        <span class="chip" data-f="p3-2" onclick="tc(this)" data-i18n="filter_hybrid">Hybrid</span>
+        <span class="chip" data-f="p3-0" onclick="tc(this)" data-i18n="filter_ice" data-color="#707b7c">ICE</span>
+        <span class="chip" data-f="p3-1" onclick="tc(this)" data-i18n="filter_ev" data-color="#00bcd4">EV</span>
+        <span class="chip" data-f="p3-2" onclick="tc(this)" data-i18n="filter_hybrid" data-color="#1abc9c">Hybrid</span>
         <span class="chip sep">|</span>
         <span class="chip" data-f="sel" onclick="tc(this)" data-i18n="filter_selected">Selected</span>
       </div>
@@ -376,6 +376,7 @@ function applyI18n(){
   updateLaunchBtn();
   // Re-render sessions to update translated labels
   if(settings) renderSessions();
+  if(allCars.length) renderCars();
   renderThemePanel();
 }
 
@@ -561,6 +562,20 @@ function collectSessions(){
 
 const TM = [1,2,4,8,16,32,64,128];
 
+// Category colors
+const P1_COLORS = ['#e74c3c', '#e67e22', '#5dade2'];        // Road, Race, Track
+const P2_COLORS = ['#27ae60', '#d4a017', '#8e44ad'];        // Modern, Vintage, Young Timer
+const P3_COLORS = ['#707b7c', '#00bcd4', '#1abc9c'];        // ICE, EV, Hybrid
+
+function carColor(car) {
+  // Returns the three category colors for a car
+  return {
+    p1: P1_COLORS[car.property_1] || '#555',
+    p2: P2_COLORS[car.property_2] || '#555',
+    p3: P3_COLORS[car.property_3] || '#555',
+  };
+}
+
 function renderSessions(){
   const grid = document.getElementById('sessionsGrid');
   if(!settings) return;
@@ -715,11 +730,19 @@ function renderCars(){
     grid.innerHTML = `<div style="grid-column:1/-1;color:var(--text2);text-align:center;padding:26px">${allCars.length===0?t('set_exe_first'):t('no_cars_match')}</div>`;
     return;
   }
-  grid.innerHTML = fil.map(c=>`<div class="cc ${c.is_selected?'sel':''}" onclick="toggleCar('${c.name.replace(/'/g,"\\'")}')">
-    <div class="cn">${c.display_name||c.name}</div>
-    <div class="cm">${P1L()[c.property_1]||''} · ${P2L()[c.property_2]||''} · ${P3L()[c.property_3]||''}</div>
-    <div class="cpi">PI: ${c.performance_indicator?.toFixed(0)??'?'}</div>
-  </div>`).join('');
+  grid.innerHTML = fil.map(c=>{
+    const col = carColor(c);
+    const pill = (label, color) => `<span style="background:${color}22;color:${color};border:1px solid ${color}66;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap">${label}</span>`;
+    return `<div class="cc ${c.is_selected?'sel':''}" onclick="toggleCar('${c.name.replace(/'/g,"\\'")}')">
+      <div class="cn" style="margin-bottom:5px">${c.display_name||c.name}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">
+        ${pill(P1L()[c.property_1]||'', col.p1)}
+        ${pill(P2L()[c.property_2]||'', col.p2)}
+        ${pill(P3L()[c.property_3]||'', col.p3)}
+      </div>
+      <div class="cpi">PI: ${c.performance_indicator?.toFixed(0)??'?'}</div>
+    </div>`;
+  }).join('');
   document.getElementById('carsCount').textContent = `${allCars.filter(c=>c.is_selected).length}/${allCars.length}`;
 }
 
@@ -727,7 +750,14 @@ function toggleCar(n){ const c=allCars.find(c=>c.name===n); if(c){c.is_selected=
 function filterCars(){ renderCars(); }
 function tc(el){
   const f=el.dataset.f; if(!f||el.classList.contains('sep')) return;
-  filters.has(f) ? (filters.delete(f),el.classList.remove('on')) : (filters.add(f),el.classList.add('on'));
+  if(filters.has(f)){
+    filters.delete(f); el.classList.remove('on');
+    el.style.background=''; el.style.borderColor=''; el.style.color='';
+  } else {
+    filters.add(f); el.classList.add('on');
+    const col = el.dataset.color;
+    if(col){ el.style.background=col; el.style.borderColor=col; el.style.color='#fff'; }
+  }
   renderCars();
 }
 
