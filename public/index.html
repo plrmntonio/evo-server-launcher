@@ -216,11 +216,11 @@ input[type=color]{height:36px;padding:2px 4px;cursor:pointer;border-radius:5px}
           <option value="GameModeType_RACE_WEEKEND" data-i18n="mode_race">Race Weekend</option>
         </select>
       </div>
-      <div class="f"><label data-i18n="track">Track</label><select id="trackSelect"></select></div>
+      <div class="f"><label data-i18n="track">Track</label><select id="trackSelect" onchange="onTrackChange()"></select></div>
     </div>
   </div>
   <div class="card">
-    <div class="ct" data-i18n="players">Players</div>
+    <div class="ct"><span data-i18n="players">Players</span> <span id="pitBadge" style="float:right;font-size:11px;color:var(--yellow);font-weight:600;text-transform:none;letter-spacing:0"></span></div>
     <div class="fg">
       <div class="f"><label data-i18n="max_players">Max Players</label><input type="number" id="maxPlayers" min="1" max="100"></div>
       <div class="f"><label data-i18n="max_players_limit">Max Players Limit</label><input type="number" id="maxPlayersLimit" min="1" max="100"></div>
@@ -648,10 +648,38 @@ function populateTracks(d){
   tracks.forEach(tr=>{
     const k = `${tr.track}|${tr.layout}|${tr.event_name}|${tr.track_length}`;
     const km = (tr.track_length*0.001).toFixed(2);
-    const o = new Option(`${tr.track} ${tr.layout} [${km}km]`, k);
+    const pit = tr.max_pit_slot || 0;
+    const o = new Option(`${tr.track} ${tr.layout} [${km}km] (pit: ${pit})`, k);
+    o.dataset.pit = pit;
     if(k===cur) o.selected = true;
     sel.add(o);
   });
+  // Apply pit limit to current selection
+  onTrackChange();
+}
+
+function onTrackChange(){
+  const sel = document.getElementById('trackSelect');
+  const opt = sel?.selectedOptions[0];
+  const pit = parseInt(opt?.dataset?.pit || '0');
+  const mpEl = document.getElementById('maxPlayers');
+  const mplEl = document.getElementById('maxPlayersLimit');
+  if(pit > 0 && mpEl){
+    mpEl.max = pit;
+    mplEl.max = pit;
+    // Clamp current value if it exceeds pit slots
+    if(parseInt(mpEl.value) > pit) mpEl.value = pit;
+    if(parseInt(mplEl.value) > pit) mplEl.value = pit;
+    // Show pit info badge
+    const badge = document.getElementById('pitBadge');
+    if(badge) badge.textContent = t('pit_slots') + ': ' + pit;
+  } else {
+    if(mpEl) mpEl.max = 100;
+    if(mplEl) mplEl.max = 100;
+    const badge = document.getElementById('pitBadge');
+    if(badge) badge.textContent = '';
+  }
+  updateLaunchSummary();
 }
 
 async function onSessionTypeChange(){

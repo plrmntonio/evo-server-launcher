@@ -69,7 +69,8 @@ const I18N = {
     logout: '⎋ Logout',
     theme_settings: 'Theme & Appearance', btn_apply_theme: 'Apply Theme', btn_reset_theme: 'Reset Default',
     theme_applied: 'Theme applied!', theme_reset: 'Theme reset to default.',
-    server_suffix: 'Server Suffix'
+    server_suffix: 'Server Suffix',
+    pit_slots: 'Max pit slots',
   },
   it: {
     nav_launch: 'Avvio', nav_server: 'Server', nav_event: 'Evento', nav_sessions: 'Sessioni', nav_settings: 'Impostazioni', nav_save: 'Salva',
@@ -130,7 +131,8 @@ const I18N = {
     logout: '⎋ Logout',
     theme_settings: 'Tema & Aspetto', btn_apply_theme: 'Applica Tema', btn_reset_theme: 'Ripristina Default',
     theme_applied: 'Tema applicato!', theme_reset: 'Tema ripristinato.',
-    server_suffix: 'Suffisso Server'
+    server_suffix: 'Suffisso Server',
+    pit_slots: 'Max slot pit',
   },
   de: {
     nav_launch: 'Start', nav_server: 'Server', nav_event: 'Event', nav_sessions: 'Sitzungen', nav_settings: 'Einstellungen', nav_save: 'Speichern',
@@ -190,7 +192,8 @@ const I18N = {
     logout: '⎋ Abmelden',
     theme_settings: 'Design & Aussehen', btn_apply_theme: 'Design anwenden', btn_reset_theme: 'Standard zurücksetzen',
     theme_applied: 'Design angewendet!', theme_reset: 'Design zurückgesetzt.',
-    server_suffix: 'Server-Suffix'
+    server_suffix: 'Server-Suffix',
+    pit_slots: 'Max Boxenplätze',
   },
   fr: {
     nav_launch: 'Lancer', nav_server: 'Serveur', nav_event: 'Événement', nav_sessions: 'Sessions', nav_settings: 'Paramètres', nav_save: 'Sauvegarder',
@@ -251,5 +254,6 @@ const I18N = {
     theme_settings: 'Thème & Apparence', btn_apply_theme: 'Appliquer le thème', btn_reset_theme: 'Réinitialiser',
     theme_applied: 'Thème appliqué !', theme_reset: 'Thème réinitialisé.',
     server_suffix: 'Suffixe serveur',
+    pit_slots: 'Emplacements pit max',
   }
 };
